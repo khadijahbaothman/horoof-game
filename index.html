@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="ar">
+
+<head>
+    <meta charset="UTF-8">
+    <title>لعبة الحروف </title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            direction: rtl;
+            font-family: 'Cairo', sans-serif;
+            background-color: #5C2A90;
+        }
+
+        /* الصفحة الرئيسية */
+        #setupScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 800px;
+            width: 90%;
+            background: #fff;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            z-index: 2;
+        }
+
+        .main-input {
+            width: 60%;
+            padding: 12px;
+            font-size: 18px;
+            border: 2px solid #ccc;
+            border-radius: 30px;
+            margin-bottom: 30px;
+        }
+
+        .teams-wrapper {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .team-box {
+            flex: 1;
+            min-width: 260px;
+            background: #f9f9f9;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 0 5px #ccc;
+        }
+
+        .team-box h3 {
+            margin-bottom: 10px;
+        }
+
+        .team-input {
+            width: 80%;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #ccc;
+            border-radius: 30px;
+            margin: 10px auto;
+            text-align: center;
+            display: block;
+        }
+
+        .color-picker {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .color-picker input[type="color"] {
+            width: 40px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .color-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+
+        .start-btn {
+            margin-top: 30px;
+            background: linear-gradient(to left, #ff5722, #ffc107);
+            color: white;
+            font-size: 20px;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            cursor: pointer;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* شاشة اللعبة */
+        #gameContainer {
+            display: none;
+            text-align: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #headerBar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            color: #5C2A90;
+            padding: 10px 20px;
+            font-weight: bold;
+            position: relative;
+            z-index: 10;
+        }
+
+        .team-label {
+            padding: 5px 10px;
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+        }
+
+        .back-button {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #E53935;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 11;
+        }
+
+        .controls {
+            background: #5C2A90;
+            padding: 10px;
+            z-index: 10;
+            position: relative;
+        }
+
+        .controls button {
+            background: #FFC107;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #hexGrid {
+            display: block;
+            margin: auto;
+            width: 100vw;
+            height: calc(100vh - 140px);
+
+        }
+
+        text {
+            font-size: 20px;
+            fill: black;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+
+        .hex-background {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .hex-shapes {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .hex-shapes li {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            opacity: 0;
+            /* <=== هذا السطر */
+            align-items: center;
+            font-family: 'Cairo', sans-serif;
+            font-size: 20px;
+            font-weight: bold;
+            color: #5C2A90;
+            width: 60px;
+            height: 52px;
+            background: #fff;
+            clip-path: polygon(50% 0%,
+                    93% 25%,
+                    93% 75%,
+                    50% 100%,
+                    7% 75%,
+                    7% 25%);
+
+            animation: fly 12s infinite linear;
+        }
+
+        @keyframes fly {
+            0% {
+                transform: translateY(100vh) rotate(0deg);
+                opacity: 0;
+                /* يبدأ غير مرئي */
+            }
+
+            10% {
+                opacity: 0.7;
+                /* يبدأ يظهر تدريجياً */
+            }
+
+            100% {
+                transform: translateY(-200px) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        li:nth-child(1) {
+            left: 10%;
+            background-color: #f44336;
+            /* أحمر */
+            width: 60px;
+            height: 60px;
+        }
+
+        li:nth-child(2) {
+            left: 20%;
+            background-color: #2196f3;
+            /* أزرق */
+            width: 80px;
+            height: 80px;
+            animation-delay: 5s;
+            animation-duration: 17s;
+        }
+
+        .hex-shapes li:nth-child(3) {
+            left: 30%;
+            animation-delay: 4s;
+            background-color: #FFC107;
+            width: 100px;
+            height: 100px;
+            animation-duration: 17s;
+        }
+
+        .hex-shapes li:nth-child(4) {
+            left: 40%;
+            animation-delay: 6s;
+            background-color: #ffc107;
+            width: 60px;
+            height: 60px;
+        }
+
+        .hex-shapes li:nth-child(5) {
+            left: 50%;
+            animation-delay: 1s;
+            background-color: #EC5228;
+            width: 50px;
+            height: 50px;
+        }
+
+        .hex-shapes li:nth-child(6) {
+            left: 60%;
+            animation-delay: 3s;
+            background-color: #F6DC43;
+            width: 70px;
+            height: 70px;
+        }
+
+        .hex-shapes li:nth-child(7) {
+            left: 70%;
+            animation-delay: 5s;
+            background-color: #B03052;
+            width: 120px;
+            height: 120px;
+        }
+
+        .hex-shapes li:nth-child(8) {
+            left: 80%;
+            animation-delay: 7s;
+            width: 200px;
+            height: 200px;
+        }
+
+        .hex-shapes li:nth-child(9) {
+            left: 90%;
+            animation-delay: 8s;
+            background-color: #F6DC43;
+            width: 60px;
+            height: 60px;
+        }
+
+        .hex-shapes li:nth-child(10) {
+            left: 25%;
+            animation-delay: 9s;
+            background-color: #ADB2D4;
+            width: 60px;
+            height: 60px;
+        }
+
+        #celebrationScreen {
+            display: none;
+            position: absolute;
+            /* بدل fixed */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: calc(100vh - 140px);
+            /* نفس ارتفاع الـ hexGrid */
+            color: #5C2A90;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 6;
+        }
+    </style>
+    </style>
+</head>
+
+<body>
+
+    <body>
+
+        <!-- خلفية متحركة من الهكسات -->
+        <div class="hex-background" id="hex-sh">
+            <ul class="hex-shapes">
+                <li>أ</li>
+                <li>ب</li>
+                <li>ت</li>
+                <li>ث</li>
+                <li>ج</li>
+                <li>ح</li>
+                <li>خ</li>
+                <li>د</li>
+                <li>ذ</li>
+                <li>ر</li>
+            </ul>
+        </div>
+
+        <!-- الصفحة الرئيسية -->
+        <div id="setupScreen">
+            <h2 style="color:#5C2A90;">ابدأ سباق الحروف</h2>
+
+            <input type="text" id="gameTitle" placeholder="عنوان اللعبة (مثلاً: حروف مع خديجة)" class="main-input">
+
+            <div class="teams-wrapper">
+                <div class="team-box">
+                    <h3>الفريق الأول</h3>
+                    <input type="text" id="playerName" placeholder="اسم الفريق الأول" class="team-input">
+                    <label class="color-picker">
+                        <input type="color" id="team1Color" value="#28a745" onchange="updateColorPreview('team1')">
+                    </label>
+                </div>
+
+                <div class="team-box">
+                    <h3>الفريق الثاني</h3>
+                    <input type="text" id="team2Name" placeholder="اسم الفريق الثاني" class="team-input">
+                    <label class="color-picker">
+                        <input type="color" id="team2Color" value="#ff5722" onchange="updateColorPreview('team2')">
+                    </label>
+                </div>
+            </div>
+            <div style="margin-top: 20px;">
+                <label for="groupSelect">اختر المجموعة:</label>
+                <select id="groupSelect" class="main-input" style="width: 40%;">
+                    <option value="مجموعة 1">مجموعة 1</option>
+                    <option value="مجموعة 2">مجموعة 2</option>
+                    <option value="مجموعة 3">مجموعة 3</option>
+                    <option value="مجموعة 4">مجموعة 4</option>
+                    <option value="مجموعة 5">مجموعة 5</option>
+                </select>
+            </div>
+
+            <button class="start-btn" onclick="startGame()">ابدأ اللعب</button>
+        </div>
+
+        <body>
+
+            <!-- 🟣 رأس الصفحة والفرق -->
+            <div id="gameContainer">
+                <div id="headerBar">
+                    <div id="team2Label" class="team-label" style="background:#ff5722">الفريق الثاني</div>
+                    <div id="gameTitleText">لعبة الحروف</div>
+                    <div id="team1Label" class="team-label" style="background:#28a745">الفريق الأول</div>
+                </div>
+
+                <!-- 🔁 أزرار التحكم -->
+                <!-- أزرار التحكم -->
+                <div class="controls">
+                    <button onclick="assignLetters()">تغيير الحروف</button>
+                    <button onclick="resetGame()">إعادة اللعبة</button>
+                    <button onclick="swapTeamColors()">تبديل الألوان</button>
+                    <button onclick="goBack()">الرجوع للصفحة الرئيسية</button>
+                    <button onclick="endGame()">إنهاء اللعبة</button>
+                </div>
+
+                <!-- 🟨 اللوحة: الخلايا -->
+                <svg id="hexGrid" viewBox="0 0 245 200" xmlns="http://www.w3.org/2000/svg"
+                    preserveAspectRatio="xMidYMid meet">
+                    <!-- الألوان المحيطية -->
+                    <rect x="0" y="0" width="245" height="25" id="topBand" />
+                    <rect x="0" y="175" width="245" height="25" id="bottomBand" />
+                    <rect x="0" y="0" width="25" height="200" id="leftSide" />
+                    <rect x="220" y="0" width="25" height="200" id="rightSide" />
+                    <g id="cells"></g>
+                    <rect x="0" y="0" width="245" height="200" fill="none" stroke="black" stroke-width="4" />
+                </svg>
+            </div>
+
+            <!-- ❓ نافذة السؤال -->
+            <div id="qaModal"
+                style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); justify-content:center; align-items:center; z-index:999;">
+                <div
+                    style="background:white;padding:20px;border-radius:10px;text-align:center;max-width:800px;width:100%;">
+                    <h2 id="qaLetter" style="font-size: 28px; color: #5C2A90;">الحرف:</h2>
+                    <p id="qaQuestion" style="font-size:xx-large; margin-bottom: 30px;"></p>
+                    <div>
+                        <p style="font-size: 20px;">من الفريق الذي أجاب؟</p>
+                        <button id="team1Button" onclick="applyColor('green')"
+                            style="padding: 10px 20px; font-size: 18px; margin: 5px; border: none; border-radius: 10px; color: white;">الفريق
+                            الأول</button>
+                        <button id="team2Button" onclick="applyColor('orange')"
+                            style="padding: 10px 20px; font-size: 18px; margin: 5px; border: none; border-radius: 10px; color: white;">الفريق
+                            الثاني</button>
+                    </div>
+                    <br>
+                    <button onclick="closeModal()">إغلاق</button>
+                </div>
+            </div>
+
+
+            <div id="winnerModal"
+                style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); justify-content:center; align-items:center; z-index:999;">
+                <div
+                    style="background:white; padding:30px; border-radius:12px; text-align:center; max-width:400px; width:80%;">
+                    <h2 style="margin-bottom: 20px;">من الفائز؟</h2>
+                    <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                        <button id="winnerTeam1" onclick="announceWinner('team1')"
+                            style="padding: 15px 30px; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer;"></button>
+                        <button id="winnerTeam2" onclick="announceWinner('team2')"
+                            style="padding: 15px 30px; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer;"></button>
+                        <button onclick="announceWinner('both')"
+                            style="padding: 15px 30px; background: #5C2A90; color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer;">تعادل</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="celebrationScreen">
+                <h1 id="celebrationMessage" style="font-size:90px; color: #fff;">مبروك!</h1>
+                <canvas id="confettiCanvas"
+                    style="position:absolute; top:90; left:0; width:100%; height:100%; pointer-events:none;"></canvas>
+            </div>
+
+            <script>
+                let confettiInterval = null;
+                const rows = 5, cols = 5, a = 25;
+                const w = Math.sqrt(3) * a;
+                const h = 2 * a;
+                const vSpacing = 0.75 * h;
+                const letters = [..."أبتثجحخدذرزسشصضطظعغفقكلمنهوي"];
+
+
+                let polygons = [], texts = [], gridColors = [], currentCell = null, currentLetter = "", currentQA = null;
+
+                function goBack() {
+                    location.reload();
+                }
+
+                function startGame() {
+                    selectedGroup = document.getElementById("groupSelect").value;
+                    document.getElementById("setupScreen").style.display = "none";
+                    document.getElementById('hex-sh').style.display = "none";
+                    document.getElementById("gameContainer").style.display = "block";
+
+                    const team1 = document.getElementById("playerName").value || "الفريق الأول";
+                    const team2 = document.getElementById("team2Name").value || "الفريق الثاني";
+                    const color1 = document.getElementById("team1Color").value;
+                    const color2 = document.getElementById("team2Color").value;
+
+                    document.getElementById("gameTitleText").textContent = document.getElementById("gameTitle").value || "لعبة الحروف";
+                    document.getElementById("team1Label").textContent = team1;
+                    document.getElementById("team2Label").textContent = team2;
+
+                    document.getElementById("team1Label").style.background = color1;
+                    document.getElementById("team2Label").style.background = color2;
+                    document.getElementById("topBand").setAttribute("fill", color2);
+                    document.getElementById("bottomBand").setAttribute("fill", color2);
+                    document.getElementById("leftSide").setAttribute("fill", color1);
+                    document.getElementById("rightSide").setAttribute("fill", color1);
+                    document.getElementById("team1Button").style.backgroundColor = color1;
+                    document.getElementById("team1Button").textContent = team1;
+
+                    document.getElementById("team2Button").style.backgroundColor = color2;
+                    document.getElementById("team2Button").textContent = team2;
+                    // تحديث أزرار إعلان الفائز بالأسماء والألوان
+                    document.getElementById("winnerTeam1").textContent = team1;
+                    document.getElementById("winnerTeam1").style.background = color1;
+                    document.getElementById("winnerTeam1").style.color = "white";
+
+                    document.getElementById("winnerTeam2").textContent = team2;
+                    document.getElementById("winnerTeam2").style.background = color2;
+                    document.getElementById("winnerTeam2").style.color = "white";
+
+                    createGrid();
+                    assignLetters();
+                }
+
+                function createGrid() {
+                    const cellsGroup = document.getElementById("cells");
+                    cellsGroup.innerHTML = "";
+                    polygons = []; texts = [];
+                    gridColors = Array.from({ length: rows }, () => Array(cols).fill("white"));
+
+                    for (let r = 0; r < rows; r++) {
+                        polygons[r] = [];
+                        for (let c = 0; c < cols; c++) {
+                            const cx = a + c * w + ((r % 2) ? w / 2 : 0);
+                            const cy = a + r * vSpacing;
+
+                            const points = [
+                                `${cx},${cy - a}`, `${cx + w / 2},${cy - a / 2}`,
+                                `${cx + w / 2},${cy + a / 2}`, `${cx},${cy + a}`,
+                                `${cx - w / 2},${cy + a / 2}`, `${cx - w / 2},${cy - a / 2}`
+                            ].join(" ");
+
+                            const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+                            poly.setAttribute("points", points);
+                            poly.setAttribute("fill", "white");
+                            poly.setAttribute("stroke", "purple");
+                            poly.setAttribute("stroke-width", "2");
+                            poly.dataset.row = r;
+                            poly.dataset.col = c;
+                            poly.addEventListener("click", showQuestion);
+                            cellsGroup.appendChild(poly);
+                            polygons[r][c] = poly;
+
+                            const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                            txt.setAttribute("x", cx);
+                            txt.setAttribute("y", cy);
+                            txt.setAttribute("font-size", "18");
+                            txt.setAttribute("text-anchor", "middle");
+                            txt.setAttribute("dominant-baseline", "middle");
+                            txt.textContent = "";
+                            cellsGroup.appendChild(txt);
+                            texts.push(txt);
+                        }
+                    }
+                }
+
+                function assignLetters() {
+                    const shuffled = [...letters].sort(() => 0.5 - Math.random()).slice(0, rows * cols);
+                    let index = 0;
+                    for (let r = 0; r < rows; r++) {
+                        for (let c = 0; c < cols; c++) {
+                            const letter = shuffled[index++];
+                            polygons[r][c].dataset.letter = letter;
+                            texts[r * cols + c].textContent = letter;
+                            polygons[r][c].setAttribute("fill", "white");
+                            gridColors[r][c] = "white";
+                        }
+                    }
+                }
+
+                function showQuestion(e) {
+                    const cell = e.currentTarget;
+                    const r = parseInt(cell.dataset.row);
+                    const c = parseInt(cell.dataset.col);
+                    // if (gridColors[r][c] !== "white") return;
+
+                    currentCell = cell;
+                    currentLetter = cell.dataset.letter;
+
+                    const groupNumber = parseInt(selectedGroup.replace("مجموعة ", ""));
+                    const bank = (qaBank[currentLetter] || []).filter(q => parseInt(q.group) === groupNumber);
+                    currentQA = bank[Math.floor(Math.random() * bank.length)] || { question: "لا يوجد سؤال" };
+
+                    document.getElementById("qaLetter").textContent = `الحرف: ${currentLetter}`;
+                    document.getElementById("qaQuestion").textContent = `سؤال: ${currentQA.question}`;
+                    document.getElementById("qaModal").style.display = "flex";
+                }
+
+                function applyColor(color) {
+                    if (!currentCell) return;
+                    const r = parseInt(currentCell.dataset.row);
+                    const c = parseInt(currentCell.dataset.col);
+                    gridColors[r][c] = color;
+                    const colorValue = color === "green" ? document.getElementById("team1Color").value : document.getElementById("team2Color").value;
+                    currentCell.setAttribute("fill", colorValue);
+                    closeModal();
+                }
+
+                function closeModal() {
+                    document.getElementById("qaModal").style.display = "none";
+                }
+
+                function resetGame() {
+                    assignLetters();
+                    document.getElementById("hexGrid").style.display = "block"; // إظهار اللوحة من جديد
+                    document.getElementById("celebrationScreen").style.display = "none"; // إخفاء شاشة الفوز
+                }
+
+                function swapTeamColors() {
+                    // الحصول على ألوان الفرق الحالية
+                    const team1Color = document.getElementById("team1Color").value;
+                    const team2Color = document.getElementById("team2Color").value;
+
+                    // تحديث ألوان الفرق في الواجهة
+                    document.getElementById("team1Color").value = team2Color;
+                    document.getElementById("team2Color").value = team1Color;
+                    document.getElementById("topBand").setAttribute("fill", team1Color);
+                    document.getElementById("bottomBand").setAttribute("fill", team1Color);
+                    document.getElementById("leftSide").setAttribute("fill", team2Color);
+                    document.getElementById("rightSide").setAttribute("fill", team2Color);
+
+
+                }
+
+                let qaBank = {}; // بنك الأسئلة
+                let selectedGroup = ""; // المجموعة اللي يختارها المستخدم
+
+                // تحميل ملف الأسئلة من questions.xlsx
+                fetch('questions.xlsx')
+                    .then(res => res.arrayBuffer())
+                    .then(buffer => {
+                        const workbook = XLSX.read(buffer, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+
+                        data.forEach(row => {
+                            const letter = row["الحرف"];
+                            if (!qaBank[letter]) qaBank[letter] = [];
+                            qaBank[letter].push({
+                                question: row["السؤال"],
+                                answer: row["الإجابة"],
+                                group: row["المجموعة"]
+                            });
+                        });
+
+                        console.log("تم تحميل الأسئلة:", qaBank);
+                    })
+                    .catch(err => console.error("خطأ في تحميل ملف الأسئلة:", err));
+
+
+                function endGame() {
+                    document.getElementById("winnerModal").style.display = "flex";
+                }
+
+                function announceWinner(type) {
+                    document.getElementById("winnerModal").style.display = "none";
+                    document.getElementById("hexGrid").style.display = "none";
+                    document.getElementById("celebrationScreen").style.display = "flex";
+
+                    let team1Name = document.getElementById("team1Label").textContent;
+                    let team2Name = document.getElementById("team2Label").textContent;
+                    let team1Color = document.getElementById("team1Color").value;
+                    let team2Color = document.getElementById("team2Color").value;
+
+                    const msg = document.getElementById("celebrationMessage");
+
+                    if (type === "team1") {
+                        msg.innerHTML = `🎉 مبروك لفريق <span style="color:${team1Color}">${team1Name}</span>! 🎉`;
+                    } else if (type === "team2") {
+                        msg.innerHTML = `🎉 مبروك لفريق <span style="color:${team2Color}">${team2Name}</span>! 🎉`;
+                    } else {
+                        msg.innerHTML = `🎉 مبروك للفريقين! لعبة رائعة 👏👏 🎉`;
+                    }
+
+                    startConfetti();
+                }
+                function startConfetti() {
+                    const duration = 5 * 5000;
+                    const end = Date.now() + duration;
+
+                    (function frame() {
+                        confetti({
+                            particleCount: 7,
+                            angle: 60,
+                            spread: 100,
+                            origin: { x: 0 },
+                        });
+                        confetti({
+                            particleCount: 7,
+                            angle: 120,
+                            spread: 100,
+                            origin: { x: 1 },
+                        });
+
+                        if (Date.now() < end) {
+                            requestAnimationFrame(frame);
+                        }
+                    })();
+                }
+            </script>
+        </body>
+
+</html>
